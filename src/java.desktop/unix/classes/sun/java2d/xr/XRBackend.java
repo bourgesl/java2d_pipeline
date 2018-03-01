@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -28,8 +28,9 @@ package sun.java2d.xr;
 /**
  * XRender pipeline backend interface.
  * Currently there are two different backends implemented:
- * - XRBackendJava: And experimental backend, generating protocol directly using java-code and xcb's socket handoff functionality.
  * - XRBackendNative: Native 1:1 binding with libX11.
+ * - XRBackendDeferred: Deferrs protocol submission, so that aa tiles
+ *   can be submitted in one go.
  */
 
 import java.awt.geom.*;
@@ -40,6 +41,8 @@ import sun.java2d.pipe.*;
 
 public interface XRBackend {
 
+    public void initResources(int parentXID);
+    
     public void freePicture(int picture);
 
     public void freePixmap(int pixmap);
@@ -54,11 +57,10 @@ public interface XRBackend {
 
     public void copyArea(int src, int dst, long gc, int srcx, int srcy,
                          int width, int height, int dstx, int dsty);
-
-    public void putMaskImage(int drawable, long gc, byte[] imageData,
-                             int sx, int sy, int dx, int dy,
-                             int width, int height, int maskOff,
-                             int maskScan, float ea);
+    
+    public void maskedComposite(byte op, int src, int eaMask, int dst, 
+            int srcX, int srcY, int dstX, int dstY, int width, 
+            int height, int maskScan, int maskOff, byte[] mask, float ea);
 
     public void setGCClipRectangles(long gc, Region clip);
 

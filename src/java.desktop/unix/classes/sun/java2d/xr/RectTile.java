@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -31,11 +31,11 @@ package sun.java2d.xr;
  *
  * @author Clemens Eisserer
  */
-public class MaskTile {
+public class RectTile {
     GrowableRectArray rects;
     DirtyRegion dirtyArea;
 
-    public MaskTile()
+    public RectTile()
     {
         rects = new GrowableRectArray(128);
         dirtyArea = new DirtyRegion();

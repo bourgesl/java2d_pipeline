@@ -28,9 +28,6 @@ package sun.java2d.xr;
 import java.awt.*;
 import java.awt.geom.*;
 
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-
 import sun.font.*;
 import sun.java2d.*;
 import sun.java2d.loops.*;
@@ -44,7 +41,6 @@ import sun.java2d.loops.*;
  */
 
 public class XRCompositeManager {
-    private static boolean enableGradCache = true;
     private static XRCompositeManager instance;
 
     private static final int SOLID = 0;
@@ -64,8 +60,6 @@ public class XRCompositeManager {
 
     XRSurfaceData solidSrcPict;
     int alphaMaskPict;
-    int gradCachePixmap;
-    int gradCachePicture;
 
     boolean xorEnabled = false;
     int validatedPixel = 0;
@@ -74,7 +68,7 @@ public class XRCompositeManager {
     float validatedExtraAlpha = 1.0f;
 
     XRBackend con;
-    MaskTileManager maskBuffer;
+    RectTileManager maskBuffer;
     XRTextRenderer textRenderer;
     XRMaskImage maskImage;
 
@@ -87,24 +81,22 @@ public class XRCompositeManager {
     }
 
     private XRCompositeManager(XRSurfaceData surface) {
-        con = new XRBackendNative();
+        String defProp = System.getProperty("sun.java2d.xr.deferred");
+        
+        if(defProp != null && defProp.length() > 0 
+                && Character.toLowerCase(defProp.charAt(0)) == 't') {
+            con = new XRBackendDeferred();
+        } else {
+            con = new XRBackendNative();
+        }
 
-        String gradProp =
-            AccessController.doPrivileged(new PrivilegedAction<String>() {
-                public String run() {
-                    return System.getProperty("sun.java2d.xrgradcache");
-                }
-            });
-
-        enableGradCache = gradProp == null ||
-                          !(gradProp.equalsIgnoreCase("false") ||
-                          gradProp.equalsIgnoreCase("f"));
+       con.initResources(surface.getXid());
 
         XRPaints.register(this);
 
         initResources(surface);
 
-        maskBuffer = new MaskTileManager(this, surface.getXid());
+        maskBuffer = new RectTileManager(this, surface.getXid());
         textRenderer = new XRTextRenderer(this);
         maskImage = new XRMaskImage(this, surface.getXid());
     }
@@ -121,13 +113,6 @@ public class XRCompositeManager {
         con.setPictureRepeat(alphaMaskPict, XRUtils.RepeatNormal);
         con.renderRectangle(alphaMaskPict, XRUtils.PictOpClear,
                 XRColor.NO_ALPHA, 0, 0, 1, 1);
-
-        if (enableGradCache) {
-            gradCachePixmap = con.createPixmap(parentXid, 32,
-                    MaskTileManager.MASK_SIZE, MaskTileManager.MASK_SIZE);
-            gradCachePicture = con.createPicture(gradCachePixmap,
-                    XRUtils.PictStandardARGB32);
-        }
     }
 
     public void setForeground(int pixel) {
@@ -235,21 +220,29 @@ public class XRCompositeManager {
     public void XRComposite(int src, int mask, int dst, int srcX, int srcY,
             int maskX, int maskY, int dstX, int dstY, int width, int height) {
         int cachedSrc = (src == XRUtils.None) ? getCurrentSource().picture : src;
-        int cachedX = srcX;
-        int cachedY = srcY;
 
-        if (enableGradCache && gradient != null
-                && cachedSrc == gradient.picture) {
-            con.renderComposite(XRUtils.PictOpSrc, gradient.picture,
-                    XRUtils.None, gradCachePicture, srcX, srcY, 0, 0, 0, 0,
-                    width, height);
-            cachedX = 0;
-            cachedY = 0;
-            cachedSrc = gradCachePicture;
-        }
-
-        con.renderComposite(compRule, cachedSrc, mask, dst, cachedX, cachedY,
+        con.renderComposite(compRule, cachedSrc, mask, dst, srcX, srcY,
                 maskX, maskY, dstX, dstY, width, height);
+    }
+    
+    public void XRMaskedComposite(int src, int dst, 
+            int srcX, int srcY, int dstX, int dstY, int width, 
+            int height, int maskScan, int maskOff, byte[] mask) {
+        
+          src = (src == XRUtils.None) ? getCurrentSource().picture : src;
+          
+          float maskAlpha = 1.0f;
+          int maskXid = XRUtils.None;
+          
+           if (mask != null) {
+                maskAlpha = isTexturePaintActive() ? getExtraAlpha() : 1.0f;
+           } else if (isTexturePaintActive()) {
+                maskXid = getExtraAlphaMask();
+           }
+          
+          con.maskedComposite(compRule, src, maskXid, dst, 
+             srcX,  srcY,  dstX,  dstY,  width, 
+             height,  maskScan,  maskOff, mask, maskAlpha);
     }
 
     public void XRRenderRectangles(XRSurfaceData dst, GrowableRectArray rects) {
@@ -344,7 +337,7 @@ public class XRCompositeManager {
         return textRenderer;
     }
 
-    public MaskTileManager getMaskBuffer() {
+    public RectTileManager getMaskBuffer() {
         return maskBuffer;
     }
 

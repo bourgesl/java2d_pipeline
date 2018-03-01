@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -81,12 +81,8 @@ public class XRMaskBlit extends MaskBlit {
             XRCompositeManager maskBuffer = x11sd.maskBuffer;
             XRSurfaceData x11dst = (XRSurfaceData) dst;
             x11dst.validateAsDestination(null, clip);
-
-            int maskPict = maskBuffer.getMaskBuffer().
-                         uploadMask(width, height, maskscan, maskoff, mask);
-            maskBuffer.XRComposite(x11sd.getPicture(), maskPict, x11dst.getPicture(),
-                                  srcx, srcy, 0, 0, dstx, dsty, width, height);
-            maskBuffer.getMaskBuffer().clearUploadMask(maskPict, width, height);
+            
+            maskBuffer.XRMaskedComposite(XRUtils.None, x11sd.picture, srcx, srcy, dstx, dsty, width, height, maskscan, maskoff, mask);
         } finally {
             SunToolkit.awtUnlock();
         }

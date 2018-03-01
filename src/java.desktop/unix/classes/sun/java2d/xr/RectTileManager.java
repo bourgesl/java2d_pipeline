@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -31,20 +31,20 @@ import java.util.*;
 /**
  * We render non-antialiased geometry (consisting of rectangles) into a mask,
  * which is later used in a composition step.
- * To avoid mask-allocations of large size, MaskTileManager splits
+ * To avoid mask-allocations of large size, RectTileManager splits
  * geometry larger than MASK_SIZE into several tiles,
- * and stores the geometry in instances of MaskTile.
+ * and stores the geometry in instances of RectTile.
  *
  * @author Clemens Eisserer
  */
 
-public class MaskTileManager {
+public class RectTileManager {
 
     public static final int MASK_SIZE = 256;
 
-    MaskTile mainTile = new MaskTile();
+    RectTile mainTile = new RectTile();
 
-    ArrayList<MaskTile> tileList;
+    ArrayList<RectTile> tileList;
     int allocatedTiles = 0;
     int xTiles, yTiles;
 
@@ -55,8 +55,8 @@ public class MaskTileManager {
     int maskPicture;
     long maskGC;
 
-    public MaskTileManager(XRCompositeManager xrMgr, int parentXid) {
-        tileList = new ArrayList<MaskTile>();
+    public RectTileManager(XRCompositeManager xrMgr, int parentXid) {
+        tileList = new ArrayList<RectTile>();
         this.xrMgr = xrMgr;
         this.con = xrMgr.getBackend();
 
@@ -97,7 +97,7 @@ public class MaskTileManager {
 
                 for (int i = 0; i < yTiles; i++) {
                     for (int m = 0; m < xTiles; m++) {
-                        MaskTile tile = tileList.get(i * xTiles + m);
+                        RectTile tile = tileList.get(i * xTiles + m);
 
                         int tileStartX = m * MASK_SIZE;
                         int tileStartY = i * MASK_SIZE;
@@ -122,40 +122,10 @@ public class MaskTileManager {
     }
 
     /**
-     * Uploads aa geometry generated for maskblit/fill into the mask pixmap.
-     */
-    public int uploadMask(int w, int h, int maskscan, int maskoff, byte[] mask) {
-        int maskPic = XRUtils.None;
-
-        if (mask != null) {
-            float maskAlpha =
-                 xrMgr.isTexturePaintActive() ? xrMgr.getExtraAlpha() : 1.0f;
-            con.putMaskImage(maskPixmap, maskGC, mask, 0, 0, 0, 0,
-                             w, h, maskoff, maskscan, maskAlpha);
-            maskPic = maskPicture;
-        } else if (xrMgr.isTexturePaintActive()) {
-            maskPic = xrMgr.getExtraAlphaMask();
-         }
-
-        return maskPic;
-    }
-
-    /**
-     * Clears the area of the mask-pixmap used for uploading aa coverage values.
-     */
-    public void clearUploadMask(int mask, int w, int h) {
-        if (mask == maskPicture) {
-            con.renderRectangle(maskPicture, XRUtils.PictOpClear,
-                                XRColor.NO_ALPHA, 0, 0, w, h);
-        }
-    }
-
-
-    /**
      * Renders the rectangles provided to the mask, and does a composition
      * operation with the properties set inXRCompositeManager.
      */
-    protected void compositeSingleTile(XRSurfaceData dst, MaskTile tile,
+    protected void compositeSingleTile(XRSurfaceData dst, RectTile tile,
                                        DirtyRegion dirtyArea,
                                        boolean maskRequired,
                                        int tileStartX, int tileStartY,
@@ -212,7 +182,7 @@ public class MaskTileManager {
 
 
     /**
-     * Allocates enough MaskTile instances, to cover the whole
+     * Allocates enough RectTile instances, to cover the whole
      * mask area, or resets existing ones.
      */
     protected void allocTiles(DirtyRegion maskArea) {
@@ -225,7 +195,7 @@ public class MaskTileManager {
                 if (i < allocatedTiles) {
                     tileList.get(i).reset();
                 } else {
-                    tileList.add(new MaskTile());
+                    tileList.add(new RectTile());
                 }
             }
 
@@ -254,7 +224,7 @@ public class MaskTileManager {
 
                     int tileIndex =
                          xTiles * (tileYStartIndex + n) + tileXStartIndex + m;
-                    MaskTile tile = tileList.get(tileIndex);
+                    RectTile tile = tileList.get(tileIndex);
 
                     GrowableRectArray rectTileList = tile.getRects();
                     int tileArrayIndex = rectTileList.getNextIndex();
@@ -305,7 +275,7 @@ public class MaskTileManager {
     /**
      * @return MainTile to which rectangles are added before composition.
      */
-    public MaskTile getMainTile() {
+    public RectTile getMainTile() {
         return mainTile;
      }
 }

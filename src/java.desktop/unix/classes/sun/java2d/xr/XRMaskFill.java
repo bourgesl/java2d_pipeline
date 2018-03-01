@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2018 Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -104,10 +104,7 @@ public class XRMaskFill extends MaskFill {
 
             XRCompositeManager maskBuffer = x11sd.maskBuffer;
             maskBuffer.validateCompositeState(comp, sg2d.transform, sg2d.paint, sg2d);
-
-            int maskPict = maskBuffer.getMaskBuffer().uploadMask(w, h, maskscan, maskoff, mask);
-            maskBuffer.XRComposite(XRUtils.None, maskPict, x11sd.picture, x, y, 0, 0, x, y, w, h);
-            maskBuffer.getMaskBuffer().clearUploadMask(maskPict, w, h);
+            maskBuffer.XRMaskedComposite(XRUtils.None, x11sd.picture, x, y, x, y, w, h, maskscan, maskoff, mask);
         } finally {
             SunToolkit.awtUnlock();
         }

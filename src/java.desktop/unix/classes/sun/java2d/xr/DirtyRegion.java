@@ -27,7 +27,7 @@ package sun.java2d.xr;
 
 import static java.lang.Math.min;
 import static java.lang.Math.max;
-import static sun.java2d.xr.MaskTileManager.MASK_SIZE;
+import static sun.java2d.xr.RectTileManager.MASK_SIZE;
 
 /**
  * This class implements region tracking, used by the tiled-mask code.

@@ -331,12 +331,8 @@ Java_sun_awt_X11GraphicsEnvironment_initXRender
 #endif /* !HEADLESS */
 }
 
-
 JNIEXPORT void JNICALL
-Java_sun_java2d_xr_XRBackendNative_initIDs(JNIEnv *env, jclass cls) {
-    char *maskData;
-    XImage* defaultImg;
-    jfieldID maskImgID;
+Java_sun_java2d_xr_XRBackendNative_initIDs(JNIEnv *env, jclass cls, jint maxAATileWidth, jint maxAATileHeight) {
     jlong fmt8;
     jlong fmt32;
 
@@ -358,20 +354,22 @@ Java_sun_java2d_xr_XRBackendNative_initIDs(JNIEnv *env, jclass cls) {
 
     (*env)->SetStaticLongField(env, cls, a8ID, fmt8);
     (*env)->SetStaticLongField(env, cls, argb32ID, fmt32);
+}
 
-    maskData = (char *) malloc(32*32);
+JNIEXPORT jlong JNICALL
+Java_sun_java2d_xr_XRBackendNative_initDefaultAAXImg(JNIEnv *env, jclass cls, jint maxAATileWidth, jint maxAATileHeight) {
+    char *maskData;
+    XImage* defaultImg;
+    
+    maskData = (char *) malloc(maxAATileWidth * maxAATileHeight);
     if (maskData == NULL) {
-       return;
+       return 0;
     }
 
-    defaultImg = XCreateImage(awt_display, NULL, 8, ZPixmap, 0, maskData, 32, 32, 8, 0);
-    defaultImg->data = maskData; //required?
-    maskImgID = (*env)->GetStaticFieldID(env, cls, "MASK_XIMG", "J");
-    if (maskImgID == NULL) {
-       return;
-    }
+    defaultImg = XCreateImage(awt_display, NULL, 8, ZPixmap, 0, maskData, maxAATileWidth, maxAATileHeight, 8, 0);
+    defaultImg->data = maskData;
 
-    (*env)->SetStaticLongField(env, cls, maskImgID, ptr_to_jlong(defaultImg));
+    return ptr_to_jlong(defaultImg);
 }
 
 JNIEXPORT void JNICALL

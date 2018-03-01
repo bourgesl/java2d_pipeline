@@ -41,16 +41,40 @@ import static sun.java2d.xr.XRUtils.XDoubleToFixed;
  */
 
 public class XRBackendNative implements XRBackend {
-
-    static {
-        initIDs();
-    }
-
     private static long FMTPTR_A8;
     private static long FMTPTR_ARGB32;
-    private static long MASK_XIMG;
+    private static long ximgPtr;
+    
+    private static final int AA_MASK_WIDTH = 128;
+    private static final int AA_MASK_HEIGHT = 64;
+    
+    static {
+        initIDs();
+    } 
 
+    int maskPicture;
+    int maskPixmap;
+    long maskGC;
+    
+    public XRBackendNative() {
+
+    }
+    
+    public void initResources(int parentXID) {
+        ximgPtr = initDefaultAAXImg(AA_MASK_WIDTH, AA_MASK_HEIGHT);
+        if(ximgPtr == 0) {
+            throw new OutOfMemoryError("failed to allocate ximg");
+        }
+        
+        maskPixmap = createPixmap(parentXID, 8, AA_MASK_WIDTH, AA_MASK_HEIGHT);
+        maskPicture = createPicture(maskPixmap, XRUtils.PictStandardA8);
+        maskGC = createGC(maskPixmap);
+        setGCExposures(maskGC, false);
+    }
+    
     private static native void initIDs();
+    
+    private static native long initDefaultAAXImg(int maxAATileWidth, int maxAATileHeight);
 
     public native long createGC(int drawable);
 
@@ -272,13 +296,24 @@ public class XRBackendNative implements XRBackend {
                                    glyphs.getArray(), elts.getSize(),
                                    glyphs.getSize());
     }
+    
+    public void maskedComposite(byte op, int src, int eaMask, int dst, 
+            int srcX, int srcY, int dstX, int dstY, int width, 
+            int height, int maskScan, int maskOff, byte[] mask, float ea) {
+        if(mask == null) {
+              renderComposite(op, src, eaMask, dst, srcX, srcY, 0, 0, dstX, dstY, width, height);
+        } else {
+            putMaskImage(maskPixmap, maskGC, mask, 0, 0, 0, 0, width, height, maskOff, maskScan, ea);
+            renderComposite(op, src, maskPicture, dst, srcX, srcY, 0, 0, dstX, dstY, width, height);
+        }
+    }
 
     public void putMaskImage(int drawable, long gc, byte[] imageData,
                              int sx, int sy, int dx, int dy,
                              int width, int height, int maskOff,
                              int maskScan, float ea) {
         putMaskNative(drawable, gc, imageData, sx, sy, dx, dy,
-                      width, height, maskOff, maskScan, ea, MASK_XIMG);
+                      width, height, maskOff, maskScan, ea, ximgPtr);
     }
 
     private static native void putMaskNative(int drawable, long gc,

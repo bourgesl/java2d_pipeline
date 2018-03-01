@@ -53,11 +53,11 @@ import static sun.java2d.xr.XRUtils.clampToUShort;
 
 public class XRRenderer implements PixelDrawPipe, PixelFillPipe, ShapeDrawPipe {
     XRDrawHandler drawHandler;
-    MaskTileManager tileManager;
+    RectTileManager tileManager;
     XRDrawLine lineGen;
     GrowableRectArray rectBuffer;
 
-    public XRRenderer(MaskTileManager tileManager) {
+    public XRRenderer(RectTileManager tileManager) {
         this.tileManager = tileManager;
         this.rectBuffer = tileManager.getMainTile().getRects();
 
