@@ -25,8 +25,8 @@
 
 package sun.java2d.pipe;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.ArrayList;
+
 import sun.awt.SunToolkit;
 
 /**
@@ -72,20 +72,27 @@ import sun.awt.SunToolkit;
 public abstract class RenderQueue {
 
     /** The size of the underlying buffer, in bytes. */
-    private static final int BUFFER_SIZE = 32000;
+    private static final int BUFFER_SIZE = 6*1024*1024; // 6400000 in https://github.com/JetBrains/jdk8u_jdk/commit/68ca9f00ded004c970b94bd047a04b9f09237047
 
     /** The underlying buffer for this queue. */
-    protected RenderBuffer buf;
+    protected final RenderBuffer buf;
 
     /**
      * A Set containing hard references to Objects that must stay alive until
      * the queue has been completely flushed.
      */
-    protected Set<Object> refSet;
+    protected final ArrayList<Object> refList;
 
     protected RenderQueue() {
-        refSet = new HashSet<>();
+        refList = new ArrayList<Object>(1024); // large enough (LBO) ?
         buf = RenderBuffer.allocate(BUFFER_SIZE);
+    }
+    
+    protected final void clear() {
+        // reset the buffer position
+        buf.clear();
+        // clear the set of references, since we no longer need them
+        refList.clear();
     }
 
     /**
@@ -140,7 +147,7 @@ public abstract class RenderQueue {
      * after the queue is flushed each time.
      */
     public final void addReference(Object ref) {
-        refSet.add(ref);
+        refList.add(ref);
     }
 
     /**
@@ -201,7 +208,18 @@ public abstract class RenderQueue {
      * This method will block until the entire buffer has been flushed.  The
      * queue lock must be acquired before calling this method.
      */
-    public abstract void flushNow();
+    public void flushNow() {
+        flushNow(true);
+    }
+
+    /**
+     * Schedule to process each operation currently pending on the buffer.
+     * This method will block until the entire buffer has been flushed.  The
+     * queue lock must be acquired before calling this method.
+     * @param sync true, process the operations immediately
+     */
+    public abstract void flushNow(boolean sync);
+
 
     /**
      * Immediately processes each operation currently pending on the buffer,
