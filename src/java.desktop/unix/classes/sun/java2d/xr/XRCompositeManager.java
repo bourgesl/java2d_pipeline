@@ -234,8 +234,10 @@ public class XRCompositeManager {
           float maskAlpha = 1.0f;
           int maskXid = XRUtils.None;
           
+// TODO: use extra alpha mask or just precompute values ?
+// faster to use int: (int) (extraAlpha * 255)
            if (mask != null) {
-                maskAlpha = isTexturePaintActive() ? getExtraAlpha() : 1.0f;
+                maskAlpha = 1.0f; // unsupported now ! getExtraAlpha();
            } else if (isTexturePaintActive()) {
                 maskXid = getExtraAlphaMask();
            }

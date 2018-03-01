@@ -54,6 +54,9 @@ public class AATileBuffer {
     int currX;
     int currentRowHeight;
     int maxRowWidth;
+
+// temporary Point (internal use only)
+    final Point pt;
     
     public AATileBuffer(AATileBufMan bufMan, int bufferWidth, int bufferHeight, int bufferScan, int yOffset, int bufferId, ByteBuffer buffer, boolean shmCapable) {
     	this.bufMan = bufMan;
@@ -66,9 +69,11 @@ public class AATileBuffer {
         this.bufferId = bufferId;
         
         this.buffer = buffer;
+
+        this.pt = new Point();
     }
     
-    public Point storeTile(int width, int height)  {
+    private Point storeTile(int width, int height) {
     	int dstX;
     	
     	if(bufferHeight - currY - currentRowHeight < height) {
@@ -89,8 +94,9 @@ public class AATileBuffer {
         }
         
         tileCount++;
-        
-        return new Point(dstX, currY);
+  
+        pt.move(dstX, currY);
+        return pt;
     }
     
     public int getTileCount() {
@@ -106,7 +112,8 @@ public class AATileBuffer {
     }
     
     public Point getBufferBounds() {
-    	return new Point(maxRowWidth, currY + currentRowHeight);
+        pt.move(maxRowWidth, currY + currentRowHeight);
+        return pt;
     }
     
     public Point storeMaskTile(byte[] tileData, int width, int height, int maskOff,
@@ -116,16 +123,33 @@ public class AATileBuffer {
         if(pt == null) {
             return null;
         }
-        
-        /*
-        if(ea < 0.99804687f) {
-            for(int y=0; y < height; y++) {
+/*
+        // Conversion may be long:
+        if (ea < 0.99804687f) {
+            System.out.println("EA: "+ea);
+
+            for(int y = 0; y < height; y++) {
+               int index = tileScan * y + maskOff;
                for(int x = 0; x < width; x++) {
-                   tileData[]
+                   tileData[index + x] = (byte) ( (tileData[index + x] & 0xFF) * ea);
                }
             }
-        } */
+        }
+*/
+/*
+From XRBackendNative.c:
+    if (ea != 1.0f) {
+        for (line=0; line < height; line++) {
+            for (pix=0; pix < width; pix++) {
+                int index = maskScan*line + pix + maskOff;
+                mask[index] = (((unsigned char) mask[index])*ea);
+            }
+        }
+    }
+*/
         
+// LBO: optimize mask copy (byte buffer)
+// buffer.put(byte[]) is not optimal !
         for(int y=0; y < height; y++) {
             int srcPos = tileScan * y  + maskOff;
             int dstPos = bufferScan * (pt.y + y) + pt.x;
@@ -154,12 +178,15 @@ public class AATileBuffer {
     }
     
     public boolean isUploadWithShmProfitable() {
+       if (!shmCapable) {
+           return false;
+       }
        int pixelsOccupied = maxRowWidth * (currY + currentRowHeight);
        
        // in case only one shm capable buffer is left, set the treshold higher
        // so we save the shm buffer for larger uploads later
-       return ((bufMan.getIdleShmBufferCnt() > 1 && pixelsOccupied >= SHM_THRESHOLD)
-               || pixelsOccupied >= SHM_THRESHOLD2) && shmCapable;
+       return (pixelsOccupied >= SHM_THRESHOLD2) 
+              || (bufMan.getIdleShmBufferCnt() > 1 && pixelsOccupied >= SHM_THRESHOLD);
     }
     
     public int getBufferId() {

@@ -30,28 +30,64 @@ import java.util.LinkedList;
 
 /**
  * Manages the state of the buffers for uploading the AA tiles.
- * There is always only one non-Shared-memory buffer (can be re-used immediatly
- * once XPutImage is issued), and a vrious number of SHM buffers in case SHM
+ * There is always only one non-Shared-memory buffer (can be re-used immediately
+ * once XPutImage is issued), and a various number of SHM buffers in case SHM
  * is supported on the system.
  *
  * @author Clemens Eisserer
  */
-public class AATileBufMan {
+public final class AATileBufMan {
+    private final static boolean STATS = false;
+
+    private final static int DEF_TILE_BUF_SIZE = 256;
+    private final static int TILE_BUF_WIDTH;
+    private final static int TILE_BUF_HEIGHT;
    
-    private static int SHM_NUM_BUFFERS = 4;
-    private final static int TILE_BUF_WIDTH = 256;
-    private final static int TILE_BUF_HEIGHT = 256;
+    private final static int DEF_SHM_NUM_BUFFERS = 4;
+    private final static int SHM_NUM_BUFFERS;
+
+    static {
+        int size = DEF_TILE_BUF_SIZE;
+        String sizeProp = System.getProperty("sun.java2d.xr.tile");
+        if (sizeProp != null) {
+            final int val = Integer.parseInt(sizeProp);
+            if (val >= 32 && val <= 4096) {
+                size = val;
+            }
+        }
+        TILE_BUF_WIDTH = size;
+        TILE_BUF_HEIGHT = size;
+
+        String shmProp = System.getProperty("sun.java2d.xr.shm");
+        
+        if (shmProp != null && shmProp.equalsIgnoreCase("false")) {
+            SHM_NUM_BUFFERS = 0;
+        } else {
+            int shmBuffers = DEF_SHM_NUM_BUFFERS; // default
+            shmProp = System.getProperty("sun.java2d.shmBuffers");
+            if (shmProp != null) {
+                shmBuffers = Integer.parseInt(shmProp);
+            }
+            SHM_NUM_BUFFERS = shmBuffers;
+        }
+        System.out.println("AATileBufMan: Using tile size " + size);
+        System.out.println("AATileBufMan: Using " + SHM_NUM_BUFFERS + " shmBuffers");
+    }
     
-    ByteBuffer shmBuffer;
+    // fields accessed from native code:
+    ByteBuffer shmBuffer = null;
     int shmBufferScan;
     
+// TODO: make most fields PRIVATE !
     AATileBuffer nonShmTile;
     
     AATileBuffer activeTile;
+// TODO: use ArrayList for performance !
     LinkedList<AATileBuffer> idleShmMasks;
     HashMap<Long, AATileBuffer> pendingShmMasks;
     AATileBuffer fenceQueuePendingTile;
     
+// stats
     int shmCnt;
     int noShmCnt;
     
@@ -65,14 +101,7 @@ public class AATileBufMan {
 
         nonShmTile = new AATileBuffer(this, TILE_BUF_WIDTH, TILE_BUF_HEIGHT, TILE_BUF_WIDTH, 0, 0, ByteBuffer.allocateDirect(TILE_BUF_WIDTH * TILE_BUF_HEIGHT), false);
         
-        String shmProp = System.getProperty("sun.java2d.xr.shm");
-        
-        if(shmProp == null || shmProp.length() > 0 
-                && Character.toLowerCase(shmProp.charAt(0)) == 'f') {
-            if(System.getProperty("sun.java2d.shmBuffers") != null) {
-                SHM_NUM_BUFFERS = Integer.parseInt(System.getProperty("sun.java2d.shmBuffers"));
-            }
-
+        if(SHM_NUM_BUFFERS > 0) {
             if((shmBuffer = initShmImage(TILE_BUF_WIDTH, TILE_BUF_HEIGHT * SHM_NUM_BUFFERS)) != null) {
                 for(int i = 0; i < SHM_NUM_BUFFERS; i++) {
                     int tileYOffset = TILE_BUF_HEIGHT * i;
@@ -82,10 +111,8 @@ public class AATileBufMan {
                     AATileBuffer aaShmBuf = new AATileBuffer(this, TILE_BUF_WIDTH, TILE_BUF_HEIGHT, shmBufferScan, tileYOffset, i + 1, tileBuffer, true);
                     idleShmMasks.add(aaShmBuf);
                 }
-
+                shmBuffer.position(0);
             }
-
-            shmBuffer.position(0);
         }
     }
     
@@ -105,17 +132,19 @@ public class AATileBufMan {
         if(idleShmMasks.size() > 0) {
             //System.out.println("shm tiles available: "+idleShmMasks.size());
             activeTile = idleShmMasks.removeLast();
-            shmCnt++;
+            if (STATS) {
+                shmCnt++;
+            }
         } else {
-            //System.out.println("shmtiles exhausted");
+//            System.out.println("shmtiles exhausted");
             activeTile = nonShmTile;
-            noShmCnt++;
+            if (STATS) {
+                noShmCnt++;
+            }
         }
-        
-        if(((shmCnt + noShmCnt) % 10000 == 0)) {
+        if (STATS && ((shmCnt + noShmCnt) % 10000 == 0)) {
             System.out.println("Shm: "+shmCnt+" noShm:"+noShmCnt);
         }
-        
         return activeTile;
     }
     

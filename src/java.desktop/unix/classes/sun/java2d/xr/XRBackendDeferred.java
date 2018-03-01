@@ -51,7 +51,7 @@ public class XRBackendDeferred extends XRBackendNative {
     private static final byte RENDER_CREATE_RADIAL_GRADIENT = 35;
     private static final byte FREE_PIXMAP = 54;
 
-    private static final int BUFFER_SIZE = 128*1024;
+    private static final int BUFFER_SIZE = 128*1024; // 128K
     private static int RENDER_MAJOR_OPCODE;
     
     ByteBuffer buffer;
@@ -153,7 +153,7 @@ public class XRBackendDeferred extends XRBackendNative {
 
         int maskTilesQueued = aaTileMan.getActiveTileBuffer().getTileCount();
         if ((maskTilesQueued == 0 && buffer.position() > 4 * 1024)
-                || (buffer.position() + (requestLength * 4) > 128 * 1024)) {
+                || (buffer.position() + (requestLength * 4) > BUFFER_SIZE)) {
             flushBuffer(false);
         } 
 
@@ -278,6 +278,7 @@ public class XRBackendDeferred extends XRBackendNative {
             
             if(tilePos == null) {
                 flushBuffer(false);    
+// retry after flush ?
                 maskedComposite(op, src, eaMask, dst, srcX, srcY, dstX, dstY, width, height, maskScan, maskOff, mask, ea);
                 return;
             }  
